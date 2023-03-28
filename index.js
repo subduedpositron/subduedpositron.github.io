@@ -16,8 +16,8 @@ async function startApplication() {
   console.log("Loaded!");
   await self.pyodide.loadPackage("micropip");
   const env_spec = [
-    'http://localhost:4004/scaf-0.0.3-py3-none-any.whl',
-    'http://localhost:4004/fast_histogram-0.11-cp36-abi3-emscripten_3_1_27_wasm32.whl',
+    'https://raw.githubusercontent.com/subduedpositron/subduedpositron.github.io/main/scaf-0.0.3-py3-none-any.whl',
+    'https://raw.githubusercontent.com/subduedpositron/subduedpositron.github.io/main/fast_histogram-0.11-cp36-abi3-emscripten_3_1_27_wasm32.whl',
     'https://cdn.holoviz.org/panel/0.14.4/dist/wheels/bokeh-2.4.3-py3-none-any.whl', 'https://cdn.holoviz.org/panel/0.14.4/dist/wheels/panel-0.14.4-py3-none-any.whl', 'pyodide-http==0.1.0', 
   "openpyxl",
   'astroplan',
