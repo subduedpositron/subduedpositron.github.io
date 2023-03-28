@@ -1,4 +1,4 @@
-importScripts("https://cdn.jsdelivr.net/pyodide/v0.21.3/full/pyodide.js");
+importScripts("https://cdn.jsdelivr.net/pyodide/v0.22.1/full/pyodide.js");
 
 function sendPatch(patch, buffers, msg_id) {
   self.postMessage({
@@ -15,7 +15,16 @@ async function startApplication() {
   self.pyodide.globals.set("sendPatch", sendPatch);
   console.log("Loaded!");
   await self.pyodide.loadPackage("micropip");
-  const env_spec = ['https://cdn.holoviz.org/panel/0.14.2/dist/wheels/bokeh-2.4.3-py3-none-any.whl', 'https://cdn.holoviz.org/panel/0.14.2/dist/wheels/panel-0.14.2-py3-none-any.whl', 'pyodide-http==0.1.0', 'holoviews>=1.15.1', 'holoviews>=1.15.1', 'hvplot', 'pandas', 'param', 'xarray']
+  const env_spec = [
+    'http://localhost:4004/scaf-0.0.3-py3-none-any.whl',
+    'http://localhost:4004/fast_histogram-0.11-cp36-abi3-emscripten_3_1_27_wasm32.whl',
+    'https://cdn.holoviz.org/panel/0.14.4/dist/wheels/bokeh-2.4.3-py3-none-any.whl', 'https://cdn.holoviz.org/panel/0.14.4/dist/wheels/panel-0.14.4-py3-none-any.whl', 'pyodide-http==0.1.0', 
+  "openpyxl",
+  'astroplan',
+  
+  
+  'artpop', 'holoviews>=1.15.4', 'numpy', 'param', 
+]
   for (const pkg of env_spec) {
     let pkg_name;
     if (pkg.endsWith('.whl')) {
@@ -47,51 +56,89 @@ from panel.io.pyodide import init_doc, write_doc
 
 init_doc()
 
-# https://panel.holoviz.org/user_guide/Running_in_Webassembly.html
+import sys
 
-import xarray
-# import datashader as ds
-import panel as pn
-import holoviews as hv
-import hvplot.pandas
 
-import pandas as pd
+import artpop
 
-pn.extension( template="fast")
-# pn.state.template.param.update(site="Panel in the Browser", title="XGBoost Example")
+#for module in ["scaf"]: # "obsv", "lmc", "lgs", "load_glxs", "load_mw_clusters", "cdl", "gaia", 
+#    sys.path = [f"/Users/justinhelbert/workspace/{module}/"] + sys.path
 
-cl_attrs = pd.read_csv("https://raw.githubusercontent.com/subduedpositron/subduedpositron.github.io/main/cl_attrs.csv")[:10][["cl_key", "RA", "DEC", "rh,l"]]
+
+
+from scaf.spec_images.spec_targets import SpecTargetsBlock
+
+from holoviews import opts
+# opts.defaults(opts.Scatter(bgcolor='black', width=300, height=200, axiswise=True))
+# opts.defaults(opts.Histogram(bgcolor='black', width=300, height=200))
+
 import param
-
-hv.extension('bokeh')
-
-class Clusters(param.Parameterized):
-    cl_attrs = param.DataFrame()
-clusters = Clusters(cl_attrs=cl_attrs)
-cl_attrs_table = pn.Column(clusters.param.cl_attrs, width=500)
-
-# pn.Row( 
-#     cl_attrs.hvplot.scatter(x="RA", y="DEC"),
-#     cl_attrs_table).servable()
+import panel as pn
 
 
-sel_cl_keys = ['ngc3201', 'ngc6656', 'ngc6205']
-# import datatable as dt
-# bright_cl_srcs = dt.fread("https://raw.githubusercontent.com/subduedpositron/subduedpositron.github.io/main/bright_cl_srcs.jay").to_pandas()
-bright_cl_srcs = pd.read_csv("https://raw.githubusercontent.com/subduedpositron/subduedpositron.github.io/main/bright_cl_srcs.csv")
 
-class View_Cls(param.Parameterized):
-    sel_cl_key = param.ObjectSelector(objects=sel_cl_keys, default=sel_cl_keys[0])
+import param
+import numpy as np
+
+
+
+from scaf.stat_fns import gen_gcl_populations
+# from scaf import api_artpop_uses as api_au
+# import artpop
+
+
+# util.clus_ident_harris.query("@util.clus_ident_harris.Ident.cl_key in @sel_gcls_PLfits.cl_key")
+
+
+from scaf.imager_artpop import imager_clusters
+
+from scaf import example_objs
+class SpecImages(pn.viewable.Viewer):
+    # inst = param.ObjectSelector()
     
-    @param.depends("sel_cl_key")
-    def plt_sel_cl_srcs(self):
-        sel_cl_srcs = bright_cl_srcs[bright_cl_srcs.cl_key == self.sel_cl_key]
-        # return sel_cl_srcs.hvplot.scatter(x="RA", y="DEC", cmap='gray', size=1, color='gray').opts(height=300, width=400)
-        return sel_cl_srcs.hvplot.scatter(x="RA", y="DEC", size=1, color='gray').opts(height=300, width=400) #', rasterize=True
-view_cls = View_Cls()
-pn.Column(
-    view_cls.param,
-    view_cls.plt_sel_cl_srcs).servable()
+    def __init__(self, gs,  **params):
+        self.gs = gs
+
+        super().__init__(**params)
+        self._layout = self._get_view()   
+        
+
+    def __panel__(self):
+        return self._layout
+
+    def _get_view(self):
+        radial_model="king" # CONSTANT for now
+
+        imager = imager_clusters.Imager_SpecTargetsBlock(
+            SpecTargetsBlock=self.gs.SpecTargetsBlock,
+            radial_model=radial_model   
+        )
+
+        # should this be inside Imager_RadialModels ?
+        # imager.inst.xy_dim *= self.gs.SpecTargetsBlock.grid_size
+        # if imager.inst.xy_dim % 2 == 0:
+        #     imager.inst.xy_dim += 1
+
+        # self.v_allsky_targets.view_targets_all_radec(),
+
+        return pn.Row(self.gs.view, imager)
+
+           
+from scaf import GS
+
+
+
+
+def run_panel_servable():
+    """ vw.servable() for panel serve """
+    Sel_gcls, Sel_gcls_PLfits = gen_gcl_populations.select_gcls_and_PLfits()
+    gs = GS.GameState(cl_keys_cand=list(Sel_gcls.Ident.cl_key)[:10])
+    gs.SpecTargetsBlock.instrument = example_objs.inst_NIR
+    gs.SpecTargetsBlock.param['instrument'].objects = [example_objs.inst_modified_Lugger95, example_objs.inst_NIR]
+    vw = SpecImages(gs)
+    vw.servable()
+
+run_panel_servable()
 
 await write_doc()
   `
